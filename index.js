@@ -25,6 +25,7 @@ function paginate(query, options, callback) {
   let lean = options.lean || false;
   let leanWithId = options.hasOwnProperty('leanWithId') ? options.leanWithId : true;
   let limit = options.hasOwnProperty('limit') ? options.limit : 10;
+  let withDeleted = options.withDeleted || false;
   let page, offset, skip, promises = [];
   if (options.hasOwnProperty('offset')) {
     offset = options.offset;
@@ -37,11 +38,15 @@ function paginate(query, options, callback) {
     offset = 0;
     skip = offset;
   }
+  let _find = (withDeleted && 'function' === typeof this.findWithDeleted) ?
+    this.findWithDeleted.bind(this) : this.find.bind(this);
+  let _count = (withDeleted && 'function' === typeof this.countWithDeleted) ?
+    this.countWithDeleted.bind(this) : this.count.bind(this);
 
-  promises.push(this.count(query).exec());
+  promises.push(_count(query).exec());
 
   if (limit > 0) {
-    let docsQuery = this.find(query)
+    let docsQuery = _find(query)
       .select(select)
       .sort(sort)
       .skip(skip)

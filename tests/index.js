@@ -3,6 +3,7 @@
 let mongoose = require('mongoose');
 let expect = require('chai').expect;
 let mongoosePaginate = require('../index');
+let mongooseDelete = require('mongoose-delete')
 
 let MONGO_URI = 'mongodb://127.0.0.1/mongoose_paginate_test';
 
@@ -19,6 +20,11 @@ let BookSchema = new mongoose.Schema({
 });
 
 BookSchema.plugin(mongoosePaginate);
+BookSchema.plugin(mongooseDelete, {
+  indexFields: true,
+  overrideMethods: true,
+  deleteAt: true
+});
 
 let Book = mongoose.model('Book', BookSchema);
 
@@ -166,6 +172,32 @@ describe('mongoose-paginate', function() {
       return Book.paginate({}, { populate: 'author' }).then(function(result) {
         expect(result.docs[0].author.name).to.equal('Arthur Conan Doyle');
       });
+    });
+    describe('with withDeleted', function() {
+      before(function(done) {
+        if ('function' === typeof Book.delete) {
+          Book.delete({ $or: [ { title: 'Book #1' }, { title: 'Book #2' } ] }).exec(done)
+        } else {
+          done(null)
+        }
+      });
+      after(function(done) {
+        if ('function' === typeof Book.restore) {
+          Book.restore({$or: [{title: 'Book #1'}, {title: 'Book #2'}]}).exec(done)
+        } else {
+          done(null)
+        }
+      });
+      it('with withDeleted=true', function() {
+        return Book.paginate({}, { withDeleted: true }).then(function(result) {
+          expect(result.docs[0].title).to.equal('Book #1');
+        });
+      });
+      it('with withDeleted=false', function() {
+        return Book.paginate({}, { withDeleted: false }).then(function(result) {
+          expect(result.docs[0].title).to.equal('Book #3');
+        });
+      })
     });
     describe('with lean', function() {
       it('with default leanWithId=true', function() {
